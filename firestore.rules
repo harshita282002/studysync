@@ -1,0 +1,349 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reusable Hardened Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isNonEmptyString(val, maxLen) {
+      return val is string && val.size() >= 1 && val.size() <= maxLen;
+    }
+
+    function isBoundedString(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUserPrivate(data, userId) {
+      return data.keys().hasAll([
+        'uid', 'name', 'email', 'program', 'campusCluster',
+        'bio', 'skills', 'availabilityStatus', 'isProMember',
+        'reliabilityScore', 'completedProjects', 'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'uid', 'name', 'email', 'program', 'campusCluster',
+        'bio', 'photoURL', 'skills', 'availabilityStatus', 'isProMember',
+        'proActivatedAt', 'lastPaymentId',
+        'reliabilityScore', 'completedProjects', 'createdAt'
+      ])
+      && data.uid == userId
+      && isNonEmptyString(data.name, 100)
+      && isNonEmptyString(data.email, 200)
+      && isNonEmptyString(data.program, 100)
+      && isNonEmptyString(data.campusCluster, 100)
+      && isBoundedString(data.bio, 600)
+      && (!('photoURL' in data) || isBoundedString(data.photoURL, 100000))
+      && data.skills is list && data.skills.size() <= 6
+      && (data.skills.size() == 0 || (data.skills[0] is map && isNonEmptyString(data.skills[0].name, 60)))
+      && data.availabilityStatus in ['Available Now', 'Busy', 'Open for Weekends']
+      && data.isProMember is bool
+      && (!('proActivatedAt' in data) || data.proActivatedAt is timestamp)
+      && (!('lastPaymentId' in data) || isNonEmptyString(data.lastPaymentId, 128))
+      && data.reliabilityScore is number && data.reliabilityScore >= 0 && data.reliabilityScore <= 5
+      && data.completedProjects is number && data.completedProjects >= 0 && data.completedProjects <= 1000
+      && data.createdAt is timestamp;
+    }
+
+    function isValidPeerProfile(data) {
+      return data.keys().hasAll([
+        'uid', 'ownerUid', 'isDemo', 'name', 'program', 'campusCluster',
+        'bio', 'skills', 'availabilityStatus', 'isProMember',
+        'reliabilityScore', 'completedProjects', 'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'uid', 'ownerUid', 'isDemo', 'name', 'program', 'campusCluster',
+        'bio', 'photoURL', 'skills', 'availabilityStatus', 'isProMember',
+        'reliabilityScore', 'completedProjects', 'createdAt'
+      ])
+      && isValidId(data.uid)
+      && data.ownerUid == request.auth.uid
+      && data.isDemo is bool
+      && isNonEmptyString(data.name, 100)
+      && isNonEmptyString(data.program, 100)
+      && isNonEmptyString(data.campusCluster, 100)
+      && isBoundedString(data.bio, 600)
+      && (!('photoURL' in data) || isBoundedString(data.photoURL, 100000))
+      && data.skills is list && data.skills.size() <= 6
+      && (data.skills.size() == 0 || (data.skills[0] is map && isNonEmptyString(data.skills[0].name, 60)))
+      && data.availabilityStatus in ['Available Now', 'Busy', 'Open for Weekends']
+      && data.isProMember is bool
+      && data.reliabilityScore is number && data.reliabilityScore >= 0 && data.reliabilityScore <= 5
+      && data.completedProjects is number && data.completedProjects >= 0 && data.completedProjects <= 1000
+      && data.createdAt is timestamp;
+    }
+
+    function isValidProjectBoard(data, projectId) {
+      return data.keys().hasAll([
+        'id', 'creatorId', 'ownerUid', 'creatorName', 'title', 'category',
+        'description', 'requiredSkills', 'deadline', 'teamSizeNeeded',
+        'currentMembers', 'status', 'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'id', 'creatorId', 'ownerUid', 'creatorName', 'title', 'category',
+        'description', 'requiredSkills', 'deadline', 'teamSizeNeeded',
+        'currentMembers', 'status', 'createdAt'
+      ])
+      && data.id == projectId
+      && isValidId(data.creatorId)
+      && isValidId(data.ownerUid)
+      && isNonEmptyString(data.creatorName, 100)
+      && data.title is string && data.title.size() >= 3 && data.title.size() <= 140
+      && data.category in ['Case Competition', 'Semester Project', 'Hackathon', 'Study Group']
+      && data.description is string && data.description.size() >= 5 && data.description.size() <= 1500
+      && data.requiredSkills is list && data.requiredSkills.size() >= 1 && data.requiredSkills.size() <= 10
+      && data.requiredSkills[0] is string && data.requiredSkills[0].size() <= 60
+      && isNonEmptyString(data.deadline, 40)
+      && data.teamSizeNeeded is number && data.teamSizeNeeded >= 2 && data.teamSizeNeeded <= 12
+      && data.currentMembers is list && data.currentMembers.size() >= 1 && data.currentMembers.size() <= 12
+      && data.currentMembers[0] is string && data.currentMembers[0].size() <= 128
+      && data.status in ['Open', 'In Progress', 'Completed']
+      && data.createdAt is timestamp;
+    }
+
+    function isValidMatchRequest(data, requestId) {
+      return data.keys().hasAll([
+        'id', 'senderId', 'senderName', 'receiverId', 'receiverName',
+        'message', 'status', 'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'id', 'senderId', 'senderName', 'receiverId', 'receiverName',
+        'projectId', 'projectTitle', 'message', 'status', 'createdAt'
+      ])
+      && data.id == requestId
+      && isValidId(data.senderId)
+      && isValidId(data.receiverId)
+      && data.senderId != data.receiverId
+      && isNonEmptyString(data.senderName, 100)
+      && isNonEmptyString(data.receiverName, 100)
+      && (!('projectId' in data) || isBoundedString(data.projectId, 128))
+      && (!('projectTitle' in data) || isBoundedString(data.projectTitle, 140))
+      && isNonEmptyString(data.message, 800)
+      && data.status in ['Pending', 'Accepted', 'Declined']
+      && data.createdAt is timestamp;
+    }
+
+    function isValidTeamWorkspace(data, workspaceId) {
+      return data.keys().hasAll([
+        'id', 'projectId', 'projectTitle', 'memberIds', 'members',
+        'tasks', 'notes', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'id', 'projectId', 'projectTitle', 'memberIds', 'members',
+        'tasks', 'links', 'notes', 'updatedAt'
+      ])
+      && data.id == workspaceId
+      && isValidId(data.projectId)
+      && isNonEmptyString(data.projectTitle, 140)
+      && data.memberIds is list && data.memberIds.size() >= 1 && data.memberIds.size() <= 12
+      && data.memberIds[0] is string && data.memberIds[0].size() <= 128
+      && data.members is list && data.members.size() >= 1 && data.members.size() <= 12
+      && data.members[0] is map
+      && data.tasks is list && data.tasks.size() <= 60
+      && (data.tasks.size() == 0 || data.tasks[0] is map)
+      && (!('links' in data) || (data.links is list && data.links.size() <= 20))
+      && isBoundedString(data.notes, 6000)
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidPaymentReceipt(data, paymentId) {
+      return data.keys().hasAll([
+        'uid', 'userEmail', 'amount', 'currency', 'razorpayPaymentId', 'status', 'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'uid', 'userEmail', 'amount', 'currency', 'razorpayPaymentId', 'status', 'createdAt'
+      ])
+      && isValidId(data.uid)
+      && isNonEmptyString(data.userEmail, 200)
+      && data.amount is number && data.amount == 149
+      && data.currency == 'INR'
+      && isValidId(data.razorpayPaymentId)
+      && data.razorpayPaymentId == paymentId
+      && data.status == 'captured'
+      && data.createdAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // 1. Private User Accounts (PII-isolated)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId) && isOwner(userId)
+        && isValidUserPrivate(incoming(), userId)
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(userId) && isOwner(userId)
+        && isValidUserPrivate(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && (!('proActivatedAt' in incoming()) || incoming().proActivatedAt == request.time || (('proActivatedAt' in existing()) && incoming().proActivatedAt == existing().proActivatedAt))
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'program', 'campusCluster', 'bio', 'photoURL', 'skills',
+          'availabilityStatus', 'isProMember', 'proActivatedAt',
+          'lastPaymentId', 'completedProjects'
+        ]);
+      allow delete: if false;
+    }
+
+    // 2. Public Peer Directory Profiles (PII-free)
+    match /peerProfiles/{profileId} {
+      allow get: if isSignedIn() && isValidId(profileId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(profileId)
+        && isValidPeerProfile(incoming())
+        && incoming().createdAt == request.time
+        && (
+          (profileId == request.auth.uid && incoming().uid == request.auth.uid && incoming().isDemo == false)
+          || (profileId.matches('^demo_peer_[1-6]$') && incoming().isDemo == true)
+        );
+      allow update: if isSignedIn() && isValidId(profileId)
+        && isValidPeerProfile(incoming())
+        && existing().ownerUid == request.auth.uid
+        && existing().isDemo == false
+        && incoming().uid == existing().uid
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().isDemo == existing().isDemo
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'program', 'campusCluster', 'bio', 'photoURL', 'skills',
+          'availabilityStatus', 'isProMember', 'completedProjects'
+        ]);
+      allow delete: if false;
+    }
+
+    // 3. Collaboration Noticeboard Projects
+    match /projectBoards/{projectId} {
+      allow get: if isSignedIn() && isValidId(projectId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(projectId)
+        && isValidProjectBoard(incoming(), projectId)
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && (
+          incoming().creatorId == request.auth.uid
+          || projectId.matches('^demo_proj_[1-4]$')
+        );
+      allow update: if isSignedIn() && isValidId(projectId)
+        && isValidProjectBoard(incoming(), projectId)
+        && existing().status != 'Completed'
+        && incoming().id == existing().id
+        && incoming().creatorId == existing().creatorId
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && (
+          // Action 1: Creator updates project details or status
+          (
+            existing().creatorId == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'title', 'category', 'description', 'requiredSkills',
+              'deadline', 'teamSizeNeeded', 'currentMembers', 'status'
+            ])
+          )
+          // Action 2: Peer applies / joins an open project
+          || (
+            existing().status == 'Open'
+            && !(request.auth.uid in existing().currentMembers)
+            && request.auth.uid in incoming().currentMembers
+            && incoming().currentMembers.size() == existing().currentMembers.size() + 1
+            && incoming().diff(existing()).affectedKeys().hasOnly(['currentMembers'])
+          )
+        );
+      allow delete: if isSignedIn() && isValidId(projectId) && existing().creatorId == request.auth.uid;
+    }
+
+    // 4. Direct Match Requests
+    match /matchRequests/{requestId} {
+      allow get: if isSignedIn() && isValidId(requestId)
+        && (existing().senderId == request.auth.uid || existing().receiverId == request.auth.uid);
+      allow list: if isSignedIn()
+        && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(requestId)
+        && isValidMatchRequest(incoming(), requestId)
+        && incoming().senderId == request.auth.uid
+        && incoming().status == 'Pending'
+        && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && isValidId(requestId)
+        && isValidMatchRequest(incoming(), requestId)
+        && existing().receiverId == request.auth.uid
+        && existing().status == 'Pending'
+        && incoming().status in ['Accepted', 'Declined']
+        && incoming().id == existing().id
+        && incoming().senderId == existing().senderId
+        && incoming().receiverId == existing().receiverId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isSignedIn() && isValidId(requestId) && existing().senderId == request.auth.uid;
+    }
+
+    // 5. Team Workspaces
+    match /teamWorkspaces/{workspaceId} {
+      allow get: if isSignedIn() && isValidId(workspaceId)
+        && request.auth.uid in existing().memberIds;
+      allow list: if isSignedIn()
+        && request.auth.uid in resource.data.memberIds;
+      allow create: if isSignedIn() && isValidId(workspaceId)
+        && isValidTeamWorkspace(incoming(), workspaceId)
+        && request.auth.uid in incoming().memberIds
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidId(workspaceId)
+        && isValidTeamWorkspace(incoming(), workspaceId)
+        && incoming().id == existing().id
+        && incoming().projectId == existing().projectId
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Existing workspace member updates tasks, links, or notes
+          (
+            request.auth.uid in existing().memberIds
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'tasks', 'links', 'notes', 'members', 'memberIds', 'updatedAt'
+            ])
+          )
+          // Action 2: Verified project member joins workspace (Master Gate)
+          || (
+            !(request.auth.uid in existing().memberIds)
+            && request.auth.uid in incoming().memberIds
+            && incoming().memberIds.size() == existing().memberIds.size() + 1
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'memberIds', 'members', 'updatedAt'
+            ])
+            && exists(/databases/$(database)/documents/projectBoards/$(existing().projectId))
+            && request.auth.uid in get(/databases/$(database)/documents/projectBoards/$(existing().projectId)).data.currentMembers
+          )
+        );
+      allow delete: if false;
+    }
+
+    // 6. Payment Receipts (Immutable owner-scoped records)
+    match /payments/{paymentId} {
+      allow get: if isValidId(paymentId) && isOwner(existing().uid);
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(paymentId)
+        && isValidPaymentReceipt(incoming(), paymentId)
+        && incoming().uid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "StudySync",
+  "description": "Campus peer-matching and team-building platform for university students to find verified teammates with complementary skills for case competitions, hackathons, semester projects, and study groups.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

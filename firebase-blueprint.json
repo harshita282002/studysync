@@ -1,0 +1,161 @@
+{
+  "entities": {
+    "UserPrivate": {
+      "title": "UserPrivate",
+      "description": "Private authenticated user account profile containing PII (email) and plan status.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "program": { "type": "string", "maxLength": 100 },
+        "campusCluster": { "type": "string", "maxLength": 100 },
+        "bio": { "type": "string", "maxLength": 600 },
+        "photoURL": { "type": "string", "maxLength": 100000 },
+        "skills": { "type": "array", "description": "Up to 6 skills with name and proficiency" },
+        "availabilityStatus": {
+          "type": "string",
+          "enum": ["Available Now", "Busy", "Open for Weekends"]
+        },
+        "isProMember": { "type": "boolean" },
+        "proActivatedAt": { "type": "string", "format": "date-time" },
+        "lastPaymentId": { "type": "string", "maxLength": 128 },
+        "reliabilityScore": { "type": "number" },
+        "completedProjects": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "program", "campusCluster", "skills", "availabilityStatus", "isProMember", "reliabilityScore", "completedProjects", "createdAt"]
+    },
+    "PeerProfile": {
+      "title": "PeerProfile",
+      "description": "Public campus peer directory profile (PII-free) used for complementary skill matching.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "isDemo": { "type": "boolean" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "program": { "type": "string", "maxLength": 100 },
+        "campusCluster": { "type": "string", "maxLength": 100 },
+        "bio": { "type": "string", "maxLength": 600 },
+        "photoURL": { "type": "string", "maxLength": 100000 },
+        "skills": { "type": "array", "description": "Up to 6 skills with name and proficiency" },
+        "availabilityStatus": {
+          "type": "string",
+          "enum": ["Available Now", "Busy", "Open for Weekends"]
+        },
+        "isProMember": { "type": "boolean" },
+        "reliabilityScore": { "type": "number" },
+        "completedProjects": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "ownerUid", "isDemo", "name", "program", "campusCluster", "skills", "availabilityStatus", "isProMember", "reliabilityScore", "completedProjects", "createdAt"]
+    },
+    "ProjectBoard": {
+      "title": "ProjectBoard",
+      "description": "Open call for teammates across Case Competitions, Semester Projects, Hackathons, and Study Groups.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "creatorId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "creatorName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "title": { "type": "string", "minLength": 3, "maxLength": 140 },
+        "category": {
+          "type": "string",
+          "enum": ["Case Competition", "Semester Project", "Hackathon", "Study Group"]
+        },
+        "description": { "type": "string", "minLength": 5, "maxLength": 1500 },
+        "requiredSkills": { "type": "array", "description": "Up to 10 required skill names" },
+        "deadline": { "type": "string", "maxLength": 40 },
+        "teamSizeNeeded": { "type": "number" },
+        "currentMembers": { "type": "array", "description": "Up to 12 member UIDs" },
+        "status": {
+          "type": "string",
+          "enum": ["Open", "In Progress", "Completed"]
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "creatorId", "ownerUid", "creatorName", "title", "category", "description", "requiredSkills", "deadline", "teamSizeNeeded", "currentMembers", "status", "createdAt"]
+    },
+    "MatchRequest": {
+      "title": "MatchRequest",
+      "description": "Direct teammate collaboration invitation between two students.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "receiverId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "receiverName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "projectId": { "type": "string", "maxLength": 128 },
+        "projectTitle": { "type": "string", "maxLength": 140 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 800 },
+        "status": {
+          "type": "string",
+          "enum": ["Pending", "Accepted", "Declined"]
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "senderName", "receiverId", "receiverName", "message", "status", "createdAt"]
+    },
+    "TeamWorkspace": {
+      "title": "TeamWorkspace",
+      "description": "Persistent team workspace with Kanban tasks, shared links, and scratchpad notes.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "projectId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "projectTitle": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "memberIds": { "type": "array", "description": "Up to 12 member UIDs for access control" },
+        "members": { "type": "array", "description": "Up to 12 member objects { uid, name, role }" },
+        "tasks": { "type": "array", "description": "Up to 60 Kanban tasks { id, title, assignee, status }" },
+        "links": { "type": "array", "description": "Up to 20 shared resource links { label, url }" },
+        "notes": { "type": "string", "maxLength": 6000 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "projectId", "projectTitle", "memberIds", "members", "tasks", "notes", "updatedAt"]
+    },
+    "PaymentReceipt": {
+      "title": "PaymentReceipt",
+      "description": "Immutable Razorpay payment receipt for StudySync Pro upgrades.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userEmail": { "type": "string", "format": "email", "maxLength": 200 },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["INR"] },
+        "razorpayPaymentId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["captured"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "userEmail", "amount", "currency", "razorpayPaymentId", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserPrivate" },
+      "description": "Owner-only private user account documents containing email and profile preferences."
+    },
+    "/peerProfiles/{profileId}": {
+      "schema": { "$ref": "#/entities/PeerProfile" },
+      "description": "Public campus peer directory documents without PII."
+    },
+    "/projectBoards/{projectId}": {
+      "schema": { "$ref": "#/entities/ProjectBoard" },
+      "description": "Live collaboration noticeboard project postings."
+    },
+    "/matchRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/MatchRequest" },
+      "description": "Direct peer-to-peer teammate collaboration requests."
+    },
+    "/teamWorkspaces/{workspaceId}": {
+      "schema": { "$ref": "#/entities/TeamWorkspace" },
+      "description": "Shared team workspaces with Kanban tasks and notes."
+    },
+    "/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/PaymentReceipt" },
+      "description": "Razorpay payment receipts for StudySync Pro subscriptions."
+    }
+  }
+}
